@@ -70,10 +70,13 @@ var waveform_line = function(this_theta, n) {
   }
 };
 
+var n = 0;
 var simple_pendulum = function(l) {
 
+waveform_line(theta, n);
 w = w - (g*correction_factor/l)*theta*delta_t;
 theta = theta + w*delta_t;
+n += delta_t*4;
 
 xpos = centerScreen + l*Math.sin(theta);
 ypos = pivotPoint + l*Math.cos(theta);
