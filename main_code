@@ -1,0 +1,178 @@
+//All pendulums in this program utilize the Euler-Cromer method.
+
+var screenSize = 900;
+var centerScreen = screenSize / 2;
+var pivotPoint = centerScreen - 100;
+//pivotPoint is the y location for the pendulum's support.
+
+var t = 0.0;
+var delta_t = 0.015;
+
+//Scales the pendulum so that its behavior is easily visible. When correction_factor is set to 1, it treats one pixel as one meter.
+// So, correction_factor = no. pixels / 1 meter 
+correction_factor = 30;
+
+g = 9.8;
+l = correction_factor;
+pi = 3.14159;
+
+/*Variables for the program. w represents small omega, which is used for angular velocity.
+* There are multiple copies of w and theta, each corresponding to different available pendulums. This way, more than one pendulum can
+* be simulated at a time. Each pendulum updates its variables independently of the others.
+*/
+var w = 0.0;
+var theta = pi/6;
+var w_b = 0.0;
+var theta_b = pi/6;
+var w_c = pi/4;
+var theta_c = pi/2;
+
+var w_damped = 0.0;
+var theta_damped = pi/6;
+
+var w_force = 0.0;
+var theta_force = pi/6;
+
+var w_chaotic = 0.0;
+var theta_chaotic = pi/4;
+
+var waveform_list = [];
+var x_list = [];
+
+//Note: I will scale everything by correction_factor. So if l is correction_factor, then it is actually 1 meter.
+
+var waveform_line = function(this_theta, n) {
+  /* Draws a waveform that matches the pattern of the current pendulum. Must be called within a pendulum function.
+   * this_theta is the theta value for the pendulum, and n is an integer that scales x-distance.
+   * This function collects data and updates lists so that they have corresponding x-theta pairs, and draws lines connecting these data points.
+   * This creates the waveform line. Since javascript draws animations by plastering new images on top of previous ones, there are only a few options
+   * for drawing a curve that grows with time, matching the pendulum's motion. One way is to turn off the background, and draw one point at a time.
+   * This makes the pendulum leave previous pendulum states behind and the animation no longer looks nice. Another way is to keep a list of points, update, and draw 
+   * the whole list every frame. This can become quite slow, but it looks much better. I have used the second method.
+   */
+  //The scale variable increases the scale of the theta axis for the waveform curve.
+  scale = 25;
+  
+  //Updates the theta and x coordinate lists
+  waveform_list.push(this_theta);
+  x_list.push(n);
+  
+  // I have added a few variables to reduce the amount of data drawn each frame, to help the program run more smoothly. Since the points are rather close together,
+  // omitting a few in between doesn't change the curve much, and saves 2 or 3 times the work.
+  var jump_scale = 3;
+  var location = screenSize*6/7;
+  if (waveform_list.length <= screenSize*20) {
+    for (var i = 0; i < waveform_list.length; i+=jump_scale) {
+      if (abs(waveform_list[i] - waveform_list[i-jump_scale]) < 2*pi - delta_t*4) {
+        line(x_list[i], location - scale*waveform_list[i], x_list[i-jump_scale], location - scale*waveform_list[i-jump_scale]);
+      }
+    }
+  }
+};
+
+var simple_pendulum = function(l) {
+
+w = w - (g*correction_factor/l)*theta*delta_t;
+theta = theta + w*delta_t;
+
+xpos = centerScreen + l*Math.sin(theta);
+ypos = pivotPoint + l*Math.cos(theta);
+fill(230, 120, 30);
+line(centerScreen, pivotPoint, xpos, ypos);
+ellipse(xpos, ypos, 30, 30);
+  
+};
+
+var nonlinear_pendulum = function(l) {
+w_b = w_b - (g*correction_factor/l)*Math.sin(theta_b)*delta_t;
+theta_b = theta_b + w_b*delta_t;
+
+xpos = centerScreen + l*Math.sin(theta_b);
+ypos = pivotPoint + l*Math.cos(theta_b);
+fill(230, 120, 30);
+line(centerScreen, pivotPoint, xpos, ypos);
+ellipse(xpos, ypos, 30, 30);
+};
+
+var nonlinear_pendulum2 = function(l) {
+w_c = w_c - (g*correction_factor/l)*Math.sin(theta_c)*delta_t;
+theta_c = theta_c + w_c*delta_t;
+
+xpos = centerScreen + l*Math.sin(theta_c);
+ypos = pivotPoint + l*Math.cos(theta_c);
+fill(230, 120, 30);
+line(centerScreen, pivotPoint, xpos, ypos);
+ellipse(xpos, ypos, 30, 30);
+};
+
+var damped_pendulum = function(l, q) {
+
+w_damped = w_damped - (g*correction_factor/l)*theta_damped*delta_t - q*w_damped*delta_t;
+theta_damped = theta_damped + w_damped*delta_t;
+
+xpos = centerScreen + l*Math.sin(theta_damped);
+ypos = pivotPoint + l*Math.cos(theta_damped);
+fill(230, 120, 30);
+line(centerScreen, pivotPoint, xpos, ypos);
+ellipse(xpos, ypos, 30, 30);
+  
+};
+
+var damp_and_force_pendulum = function(l, q, F, O_d) {
+
+w_force = w_force - (g*correction_factor/l)*theta_force*delta_t - q*w_force*delta_t + F*Math.sin(O_d*t)*delta_t;
+theta_force = theta_force + w_force*delta_t;
+t += delta_t;
+
+xpos = centerScreen + l*Math.sin(theta_force);
+ypos = pivotPoint + l*Math.cos(theta_force);
+fill(230, 120, 30);
+line(centerScreen, pivotPoint, xpos, ypos);
+ellipse(xpos, ypos, 30, 30); 
+
+};
+
+n=0;
+var chaotic_pendulum = function(l, q, F, O_d) {
+  waveform_line(theta_chaotic, n);
+  w_chaotic = w_chaotic - (g*correction_factor/l)*Math.sin(theta_chaotic)*delta_t - q*w_chaotic*delta_t + F*Math.sin(O_d*t)*delta_t;
+  theta_chaotic = theta_chaotic + w_chaotic*delta_t;
+  t += delta_t;
+  n += delta_t*4;
+  
+  if (theta_chaotic < pi) {
+    //This is to make sure theta stays in acceptable bounds, [-pi, pi]
+    theta_chaotic += 2*pi;
+  }
+  if (theta_chaotic > pi) {
+    theta_chaotic -= 2*pi;
+  }
+  
+  xpos = centerScreen + l*Math.sin(theta_chaotic);
+  ypos = pivotPoint + l*Math.cos(theta_chaotic);
+  fill(230, 120, 30);
+  line(centerScreen, pivotPoint, xpos, ypos);
+  ellipse(xpos, ypos, 30, 30);
+  
+};
+
+
+
+function setup() {
+createCanvas(screenSize, screenSize);
+}
+
+function draw() {
+  
+background(200, 200, 200);
+fill(0, 0, 0);
+ellipse(centerScreen, pivotPoint, 5, 5);
+
+//simple_pendulum(l);
+//nonlinear_pendulum(l);
+//nonlinear_pendulum2(l);
+//damped_pendulum(l, 1.0);
+//damp_and_force_pendulum(l, 1.0, 3.0, 2.0);
+chaotic_pendulum(9.8*l, 1/2, 1.2, 2/3);
+
+}
